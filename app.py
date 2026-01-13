@@ -1,6 +1,54 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import os  # Добавлено для debug
+
+# ====================== Debug: список файлов в директории ======================
+st.sidebar.markdown("### Debug: файлы в репозитории")
+st.sidebar.write(os.listdir('.'))  # Покажет все файлы в корне — проверьте, есть ли marks.xlsx и т.д.
+
+# ====================== Wide layout и Material Design стиль ======================
+st.set_page_config(page_title="VPR Dashboard", layout="wide")
+
+st.markdown("""
+<style>
+    /* ... (весь ваш предыдущий CSS без изменений) ... */
+</style>
+""", unsafe_allow_html=True)
+
+# ====================== Загрузка данных с обработкой ошибок ======================
+@st.cache_data
+def load_data():
+    try:
+        df_marks = pd.read_excel("marks.xlsx", engine="openpyxl")
+    except Exception as e:
+        st.error(f"Ошибка чтения marks.xlsx: {str(e)}")
+        st.stop()
+    
+    # ... (остальной код очистки df_marks без изменений) ...
+    
+    try:
+        df_scores = pd.read_excel("scores.xlsx", engine="openpyxl")
+    except Exception as e:
+        st.error(f"Ошибка чтения scores.xlsx: {str(e)}")
+        st.stop()
+    
+    # ... (очистка df_scores) ...
+    
+    try:
+        df_bias = pd.read_excel("bias.xlsx", engine="openpyxl")
+    except Exception as e:
+        st.error(f"Ошибка чтения bias.xlsx: {str(e)}")
+        st.stop()
+    
+    # ... (очистка df_bias) ...
+    
+    return df_marks, df_scores, df_bias
+
+# Если загрузка прошла — дальше весь ваш предыдущий код без изменений
+df_marks, df_scores, df_bias = load_data()
+
+# ... (весь остальной код дашборда из предыдущей версии) ...
 
 # ====================== Wide layout и Material Design стиль ======================
 st.set_page_config(page_title="VPR Dashboard", layout="wide")
