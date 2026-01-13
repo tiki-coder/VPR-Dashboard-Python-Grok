@@ -2,6 +2,9 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 
+# ====================== Wide layout для лучшей адаптации под ширину ======================
+st.set_page_config(page_title="VPR Dashboard", layout="wide")
+
 # ====================== CSS для Material Design и sticky header ======================
 st.markdown("""
 <style>
@@ -152,7 +155,9 @@ summary_cols[3].metric("Качество", f"{kachestvo:.2f}%")
 # ====================== Графики ======================
 col_left, col_right = st.columns(2)
 
-# --- Отметки ---
+plotly_config = {"responsive": True}
+
+# --- Отметки (с подписями процентов над барами) ---
 marks_plot_df = pd.DataFrame({
     "Отметка": ["2", "3", "4", "5"],
     "Процент": marks_perc.values
@@ -164,9 +169,9 @@ fig_marks = px.bar(marks_plot_df, x="Отметка", y="Процент",
                    title="Распределение отметок (%)")
 fig_marks.update_traces(texttemplate="%{text:.2f}%")
 fig_marks.update_layout(showlegend=False, yaxis_title="Процент участников")
-col_left.plotly_chart(fig_marks, use_container_width=True)
+col_left.plotly_chart(fig_marks, use_container_width=True, config=plotly_config)
 
-# --- Первичные баллы ---
+# --- Первичные баллы (БЕЗ подписей процентов над барами) ---
 def get_scores_percentages(df):
     if df.empty or df["Кол-во участников"].sum() == 0:
         return pd.DataFrame(columns=["Балл", "Процент"])
@@ -195,13 +200,12 @@ scores_plot_df = get_scores_percentages(current_scores)
 if not scores_plot_df.empty:
     max_ball = scores_plot_df["Балл"].max()
     fig_scores = px.bar(scores_plot_df, x="Балл", y="Процент",
-                        text="Процент",
                         color_discrete_sequence=["#2196f3"],
                         title="Распределение первичных баллов (%)")
-    fig_scores.update_traces(texttemplate="%{text:.2f}%")
+    # Убрали text="Процент" и texttemplate — подписей над барами не будет
     fig_scores.update_xaxes(range=[-0.5, max_ball + 0.5], dtick=1)
     fig_scores.update_layout(yaxis_title="Процент участников")
-    col_right.plotly_chart(fig_scores, use_container_width=True)
+    col_right.plotly_chart(fig_scores, use_container_width=True, config=plotly_config)
 else:
     col_right.warning("Нет данных по первичным баллам для выбранных фильтров.")
 
