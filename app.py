@@ -37,12 +37,24 @@ def load_data():
     percent_cols_marks = ["2", "3", "4", "5"]
     df_marks[percent_cols_marks] = df_marks[percent_cols_marks].replace(",", ".", regex=True).astype(float)
     
+    # Принудительное преобразование участников к int
+    df_marks["Кол-во участников"] = pd.to_numeric(
+        df_marks["Кол-во участников"].astype(str).str.replace(",", "").str.strip(),
+        errors='coerce'
+    ).fillna(0).astype(int)
+    
     # Scores
     df_scores = pd.read_excel("scores.xlsx")
     ball_cols = [str(i) for i in range(0, 39)]
     existing_ball_cols = [col for col in ball_cols if col in df_scores.columns]
-    df_scores[existing_ball_cols] = df_scores[existing_ball_cols].replace(",", ".", regex=True).astype(float)
-    df_scores[existing_ball_cols] = df_scores[existing_ball_cols].fillna(0)
+    df_scores[existing_ball_cols] = df_scores[existing_ball_cols].replace(",", ".", regex=True)
+    df_scores[existing_ball_cols] = pd.to_numeric(df_scores[existing_ball_cols].stack(), errors='coerce').unstack().fillna(0).astype(float)
+    
+    # Принудительное преобразование участников к int
+    df_scores["Кол-во участников"] = pd.to_numeric(
+        df_scores["Кол-во участников"].astype(str).str.replace(",", "").str.strip(),
+        errors='coerce'
+    ).fillna(0).astype(int)
     
     # Bias
     df_bias = pd.read_excel("bias.xlsx")
@@ -120,8 +132,8 @@ current_scores = df_scores[(df_scores["Год"] == selected_year) &
 total_participants = current_marks["Кол-во участников"].sum()
 
 def get_marks_percentages(df):
-    if df.empty:
-        return pd.Series([0,0,0,0], index=["2","3","4","5"])
+    if df.empty or total_participants == 0:
+        return pd.Series([0.0,0.0,0.0,0.0], index=["2","3","4","5"])
     total = df["Кол-во участников"].sum()
     weighted = (df[["2","3","4","5"]] / 100 * df["Кол-во участников"].values[:, None]).sum()
     return (weighted / total * 100).round(2)
@@ -156,18 +168,24 @@ col_left.plotly_chart(fig_marks, use_container_width=True)
 
 # --- Первичные баллы ---
 def get_scores_percentages(df):
-    if df.empty:
+    if df.empty or df["Кол-во участников"].sum() == 0:
         return pd.DataFrame(columns=["Балл", "Процент"])
+    
     total = df["Кол-во участников"].sum()
     ball_cols = [col for col in df.columns if col.isdigit()]
-    weighted = pd.DataFrame(0.0, index=ball_cols, columns=["count"])
+    
+    weighted = pd.Series(0.0, index=ball_cols)
     for _, row in df.iterrows():
-        weighted["count"] += row[ball_cols] / 100 * row["Кол-во участников"]
-    percents = weighted["count"] / total * 100
+        weighted += row[ball_cols] / 100 * row["Кол-во участников"]
+    
+    percents = weighted / total * 100
+    percents = pd.to_numeric(percents, errors='coerce').fillna(0)
     percents = percents.round(2)
+    
     positive_balls = [int(col) for col in percents.index if percents[col] > 0]
     if not positive_balls:
         return pd.DataFrame(columns=["Балл", "Процент"])
+    
     max_ball = max(positive_balls)
     balls = list(range(0, max_ball + 1))
     perc_values = [percents.get(str(b), 0.0) for b in balls]
@@ -216,7 +234,7 @@ if selected_oo != "Все":
             st.success("Маркеры отсутствуют")
         st.markdown('</div>', unsafe_allow_html=True)
 
-# Средняя карточка — доля ОО с маркерами (по всему региону)
+# Средняя карточка — доля ОО с маркерами
 with bias_cols[1]:
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.subheader("Доля ОО с признаками необъективности")
@@ -225,7 +243,7 @@ with bias_cols[1]:
         base = df_marks[(df_marks["Год"] == year) &
                         (df_marks["Класс"] == 4) &
                         (df_marks["Предмет"] == "Русский язык")]
-        return base["Логин"].nunique()
+        return base["Логин"].nunique() if not base.empty else 0
     
     years_to_show = [selected_year - 2, selected_year - 1, selected_year]
     dolya_cols = st.columns(3)
@@ -237,7 +255,6 @@ with bias_cols[1]:
             dolya = marked / base * 100 if base > 0 else 0
             dolya_cols[i].metric(str(y), f"{dolya:.1f}%")
     
-    # Попадание выбранной школы в маркеры за 3 года
     if selected_oo != "Все":
         years_with_marker = []
         for y in years_to_show:
